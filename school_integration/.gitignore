@@ -1,0 +1,8 @@
+# 顧客データ（管理表・訪問シート・出力）はリポジトリに入れない
+*.xlsx
+*.csv
+*.docx
+out/
+data/
+docs/
+__pycache__/
