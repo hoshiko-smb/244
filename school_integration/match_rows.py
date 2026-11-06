@@ -120,6 +120,11 @@ def main():
         best = ranked[0] if ranked else (0, None)
         # 同名タブ（同じ学校の別キャンパス/重複タブ）は全て候補に残す
         same = [t["idx"] for s, t in ranked if s >= max(0.75, best[0] - 1e-9)]
+        # 訪問履歴が別のシート（年度ごとの No.1〜No.4）に続いている場合も拾う：学校名がほぼ完全一致するタブは合算
+        if best[0] >= 0.75:
+            for t in tabs:
+                if t["idx"] not in same and score(n, t["norm"]) >= 0.95:
+                    same.append(t["idx"])
         res.append({
             "row": r,
             "school": school,

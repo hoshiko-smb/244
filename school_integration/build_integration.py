@@ -106,6 +106,9 @@ def load_prior_sources(wb):
 # ---------------------------------------------------------------- 学校規模
 def decide_size(row_no, blocks, overrides):
     key = f"row:{row_no}"
+    fix = overrides.get(f"rowfix:{row_no}")
+    if fix:  # 複数回の訪問の記述を合わせて読む必要がある行（最新値だけでは誤解を招くもの）
+        return fix, "memo", "訪問シートの複数回の記述から整理（行ごとの補正）"
     dated = sorted(blocks, key=lambda b: b["date"] or "0000", reverse=True)
     for b in dated:
         v, kind = size_normalize(b["size_raw"], overrides)

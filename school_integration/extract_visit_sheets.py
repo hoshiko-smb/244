@@ -151,7 +151,7 @@ def extract(doc_id: str, path: str):
     text = open(path, encoding="utf-8").read()
     out = []
     for name, body in split_tabs(text):
-        if any(name.startswith(s) for s in SKIP_TABS):
+        if any(name.startswith(s) for s in SKIP_TABS) or "原本" in name or name.startswith(("（競合情報削除）", "(競合情報削除)")):
             continue
         blocks = [parse_block(b) for b in split_blocks(body)]
         fields = [b["school_field"] for b in blocks if b["school_field"]]
