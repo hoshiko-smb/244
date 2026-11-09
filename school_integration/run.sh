@@ -21,4 +21,5 @@ PYTHONPATH="$HERE" python3 "$HERE/build_integration.py" "$XLSX" "$OUT/tabs.json"
   "$HERE/size_overrides.json" "$OUT" --cutoff "$CUTOFF"
 python3 "$HERE/summarize.py" "$XLSX" "$OUT/integration.json" "$OUT" > /dev/null
 python3 "$HERE/write_xlsx.py" "$XLSX" "$OUT/integration.json" "$OUT/管理表_27卒_学校規模・競合統合.xlsx"
+python3 "$HERE/make_paste_sheet.py" "$XLSX" "$OUT/integration.json" "$OUT/コピペ用_本体AN1に貼り付け.xlsx"
 echo "done: $OUT"
