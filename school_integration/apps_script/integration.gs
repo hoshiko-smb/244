@@ -8,7 +8,7 @@
  *      その URL の /d/ と /edit の間の ID を SOURCE_SPREADSHEET_ID に貼る
  *   4. importIntegration → setupCheckColumn → createReviewFilterViews の順に実行
  *
- * 書き込むのは「27卒_アポイント＆訪問管理」タブの AN〜AW 列（追加列）だけ。既存の A〜AM 列には触れない。
+ * 書き込むのは「27卒_アポイント＆訪問管理」タブの AO〜AX 列（追加列）だけ。既存の A〜AN 列には触れない。
  */
 
 const SHEET_NAME = '27卒_アポイント＆訪問管理';
@@ -16,14 +16,16 @@ const SOURCE_SPREADSHEET_ID = 'ここに統合済みファイルのIDを貼る';
 
 const COL_SCHOOL = 8;    // H 学校名
 const COL_VISITOR = 20;  // T 訪問者
-const COL_FIRST = 40;    // AN 学校規模（1学年）
-const COL_AGIC = 41;     // AO AGIC訪問
-const COL_CHECK = 48;    // AV 担当確認
-const COL_LAST = 49;     // AW 修正内容
+// 本体の配置：AN=学校名（照合用）、AO〜AX=追加データ（2026/11/9 時点）
+const COL_FIRST = 41;    // AO 学校規模（1学年）
+const COL_AGIC = 42;     // AP AGIC訪問
+const COL_CHECK = 49;    // AW 担当確認
+const COL_LAST = 50;     // AX 修正内容
 const NUM_NEW = COL_LAST - COL_FIRST + 1;
+const SRC_FIRST = 40;    // 統合済み xlsx 側の先頭列（AN 学校規模）
 
 /**
- * 統合済みファイルの AN〜AW を本番シートへ写す。
+ * 統合済みファイルの AN〜AW を本番シートの AO〜AX へ写す（本番は AN を学校名の照合列にしている）。
  * 行番号だけでなく学校名（H列）も一致した行にだけ書くので、エクスポート後に行の並べ替え・追加が
  * あっても誤った学校に書き込まない。ずれていた行はログに出す。
  */
@@ -32,7 +34,7 @@ function importIntegration() {
   const dst = SpreadsheetApp.getActive().getSheetByName(SHEET_NAME);
   const srcRows = src.getLastRow();
   const srcSchool = src.getRange(1, COL_SCHOOL, srcRows, 1).getValues();
-  const srcNew = src.getRange(1, COL_FIRST, srcRows, NUM_NEW).getValues();
+  const srcNew = src.getRange(1, SRC_FIRST, srcRows, NUM_NEW).getValues();
 
   // 本番シートの学校名 → 行番号（同名の学校が複数ある場合は全行）
   const dstRows = dst.getLastRow();

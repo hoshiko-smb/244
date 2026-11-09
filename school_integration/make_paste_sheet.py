@@ -6,9 +6,10 @@
 管理表タブのA列（No.）と対応付けるので、同名の学校が複数あってもずれない。
 
 - 「貼り付け用」シートの行番号は、管理表「27卒_アポイント＆訪問管理」タブの行番号と完全に一致させる
-  （1行目=見出し、2行目以降=同じ行の学校）。A〜J列を選んでコピーし、本体の AN1 に貼れば反映できる。
+  （1行目=見出し、2行目以降=同じ行の学校）。A列からデータ列の最後までをコピーし、本体の AN1 に貼れば反映できる。
+- --school-col を付けると先頭に「学校名」列を付ける（本体を AN=学校名、AO〜AX=データ の配置にしている場合）。
 - 見出しは1行（改行なし）にして、テキスト経由で貼っても崩れないようにする。
-- L列に「照合用」の学校名を置く（コピー対象外）。貼る前に本体のH列と並びが同じか確認できる。
+- データ列の右に1列あけて「照合用」の学校名・No.を置く（コピー対象外）。貼る前に本体のH列と並びが同じか確認できる。
 """
 import json
 import sys
@@ -59,6 +60,10 @@ def load_order(wb, order_sheet):
 def main():
     args = sys.argv[1:]
     order_sheet = None
+    school_col = False
+    if "--school-col" in args:          # 先頭に「学校名」列を付ける（本体側で AN=学校名、AO〜=データ の配置にしている場合）
+        school_col = True
+        args.remove("--school-col")
     if "--order-sheet" in args:
         k = args.index("--order-sheet")
         order_sheet = args[k + 1]
@@ -74,37 +79,42 @@ def main():
         order = {r: (r, None, s) for r, s in schools.items() if r > 1 and s}
     last = max(order)
 
+    cols = ([("AN", "学校名", "学校名", 30)] + [(None, h, k, w) for _, h, k, w in COLUMNS]) if school_col else COLUMNS
+    ncol = len(cols)
+    chk_name, chk_no = ncol + 2, ncol + 3   # 1列あけて照合用の列
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = f"貼り付け用（{order_sheet}の順）" if order_sheet else "貼り付け用（本体AN1へ）"
-    for j, (col, head, _, width) in enumerate(COLUMNS, start=1):
+    for j, (col, head, _, width) in enumerate(cols, start=1):
         c = ws.cell(1, j, head)
         c.font = Font(bold=True)
         c.fill = HEAD_FILL
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
         ws.column_dimensions[openpyxl.utils.get_column_letter(j)].width = width
-    ws.cell(1, 12, "照合用：学校名 ※コピー不要").font = Font(bold=True)
-    ws.cell(1, 13, f"照合用：{order_sheet}のNo." if order_sheet else "照合用：本体の行番号").font = Font(bold=True)
-    for j in (12, 13):
+    L = openpyxl.utils.get_column_letter
+    ws.cell(1, chk_name, "照合用：本体H列の学校名 ※コピー不要").font = Font(bold=True)
+    ws.cell(1, chk_no, f"照合用：{order_sheet}のNo." if order_sheet else "照合用：本体の行番号").font = Font(bold=True)
+    for j in (chk_name, chk_no):
         ws.cell(1, j).fill = CHECK_FILL
-    ws.column_dimensions["K"].width = 3
-    ws.column_dimensions["L"].width = 40
-    ws.column_dimensions["M"].width = 12
+    ws.column_dimensions[L(ncol + 1)].width = 3
+    ws.column_dimensions[L(chk_name)].width = 40
+    ws.column_dimensions[L(chk_no)].width = 12
 
     for r in range(2, last + 1):
         src_row, no, name = order.get(r, (None, None, None))
         rec = recs.get(src_row)
         if rec:
-            for j, (col, _, key, _) in enumerate(COLUMNS, start=1):
-                v = rec.get(key, "") if key else ("未確認" if col == "AV" else "")
+            for j, (col, head, key, _) in enumerate(cols, start=1):
+                v = rec.get(key, "") if key else ("未確認" if head.startswith("担当確認") else "")
                 if v:
                     ws.cell(r, j, v)
         if name:
-            ws.cell(r, 12, name).fill = CHECK_FILL
-        ws.cell(r, 13, no if order_sheet else r).fill = CHECK_FILL
+            ws.cell(r, chk_name, name).fill = CHECK_FILL
+        ws.cell(r, chk_no, no if order_sheet else r).fill = CHECK_FILL
     dv = DataValidation(type="list", formula1='"未確認,OK,要修正"', allow_blank=True)
     ws.add_data_validation(dv)
-    dv.add(f"I2:I{last}")
+    check_idx = next(j for j, c in enumerate(cols, start=1) if c[1].startswith("担当確認"))
+    dv.add(f"{L(check_idx)}2:{L(check_idx)}{last}")
     ws.freeze_panes = "A2"
 
     guide = wb.create_sheet("使い方")
@@ -115,9 +125,9 @@ def main():
             f"  2行目＝No.1（{first}）… {last}行目＝No.{order[last][1]}（{final}）。{order_sheet} の行番号と1対1で対応します。",
             "",
             "■ 貼り付け手順",
-            f"1. L列（学校名）・M列（No.）が、貼り付け先の学校名・No.と同じ並びか確認する",
+            f"1. {L(chk_name)}列（学校名）・{L(chk_no)}列（No.）が、貼り付け先の学校名・No.と同じ並びか確認する",
             "2. 貼り付け先でフィルタがかかっている場合は解除して全行を表示する（非表示の行があると位置がずれるため）",
-            f"3. 「貼り付け用」シートの A1:J{last} を選択してコピー（L・M列はコピー不要）",
+            f"3. 「貼り付け用」シートの A1:{L(ncol)}{last} を選択してコピー（右側の照合用の列はコピー不要）",
             f"4. 貼り付け先の見出し行・先頭列のセルを選択し、値のみ貼り付け（Ctrl+Shift+V／Mac は ⌘+Shift+V）",
             f"   例：{order_sheet} の C1 に貼る／{SHEET} タブを A列（No.）の昇順に並べ替えてから AN1 に貼る",
             "5. 担当確認列のプルダウンが必要な場合は、貼り付け後に「データ」→「データの入力規則」で「未確認,OK,要修正」を設定",
@@ -131,12 +141,14 @@ def main():
         lines = [
         "■ Google スプレッドシート（本体）への反映手順",
         "1. このファイルを Google ドライブにアップロードし、Google スプレッドシートで開く（Excel で開いても可）",
-        f"2. 「貼り付け用」シートの L列（学校名）と、本体「{SHEET}」タブの H列が同じ並びか確認する",
+        f"2. 「貼り付け用」シートの {L(chk_name)}列（学校名）と、本体「{SHEET}」タブの H列が同じ並びか確認する",
         f"   （例: 2行目={schools.get(2)}、{last}行目={schools.get(last)}。行の追加・並べ替えをしていなければ一致します）",
         "3. 本体タブでフィルタがかかっている場合は、先にフィルタを解除して全行を表示する（非表示の行があると貼り付け位置がずれるため）",
-        f"4. 「貼り付け用」シートの A1:J{last} を選択してコピー",
+        f"4. 「貼り付け用」シートの A1:{L(ncol)}{last} を選択してコピー",
         f"5. 本体「{SHEET}」タブの AN1 セルを選択し、値のみ貼り付け（Ctrl+Shift+V／Mac は ⌘+Shift+V）",
-        "6. AV列（担当確認）にプルダウンが必要な場合は、AV列を選択 →「データ」→「データの入力規則」で「未確認,OK,要修正」を設定",
+        *([f"   貼り付け後、空いているセルに =SUMPRODUCT(--(TRIM(H2:H{last})<>TRIM(AN2:AN{last}))) を入れて 0 になれば、全行の学校名が一致しています（確認後は削除）"]
+          if school_col else []),
+        f"6. {L(39 + check_idx)}列（担当確認）にプルダウンが必要な場合は、{L(39 + check_idx)}列を選択 →「データ」→「データの入力規則」で「未確認,OK,要修正」を設定",
         "",
         "■ 列の意味",
         "AN 学校規模（1学年○○人程度） / AO AGIC（エイジェック）訪問 あり・なし・不明 / AP AGIC以外の競合の訪問 / AQ 競合の社名",
